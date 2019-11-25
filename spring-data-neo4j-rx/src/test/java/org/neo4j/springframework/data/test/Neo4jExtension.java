@@ -72,9 +72,10 @@ public class Neo4jExtension implements BeforeAllCallback, BeforeEachCallback {
 	private static final String KEY_NEO4J_INSTANCE = "neo4j.standalone";
 	private static final String KEY_DRIVER_INSTANCE = "neo4j.driver";
 
-	private static final String SYS_PROPERTY_NEOJ4_URL = "SDN_RX_NEO4J_URL";
+	private static final String SYS_PROPERTY_NEO4J_URL = "SDN_RX_NEO4J_URL";
 	private static final String SYS_PROPERTY_NEO4J_PASSWORD = "SDN_RX_NEO4J_PASSWORD";
 	private static final String SYS_PROPERTY_NEO4J_ACCEPT_COMMERCIAL_EDITION = "SDN_RX_NEO4J_ACCEPT_COMMERCIAL_EDITION";
+	private static final String SYS_PROPERTY_NEO4J_REPOSITORY = "SDN_RX_NEO4J_REPOSITORY";
 	private static final String SYS_PROPERTY_NEO4J_VERSION = "SDN_RX_NEO4J_VERSION";
 
 	private static Set<String> COMMUNITY_EDITION_INDICATOR = Collections.singleton("community");
@@ -92,7 +93,7 @@ public class Neo4jExtension implements BeforeAllCallback, BeforeEachCallback {
 			return;
 		}
 
-		String neo4jUrl = Optional.ofNullable(System.getenv(SYS_PROPERTY_NEOJ4_URL)).orElse("");
+		String neo4jUrl = Optional.ofNullable(System.getenv(SYS_PROPERTY_NEO4J_URL)).orElse("");
 		String neo4jPassword = Optional.ofNullable(System.getenv(SYS_PROPERTY_NEO4J_PASSWORD)).orElse("");
 
 		ExtensionContext.Store contextStore = context.getStore(NAMESPACE);
@@ -248,9 +249,11 @@ public class Neo4jExtension implements BeforeAllCallback, BeforeEachCallback {
 
 	static class ContainerAdapter implements ExtensionContext.Store.CloseableResource {
 
-		private final String imageVersion = Optional.ofNullable(System.getenv(SYS_PROPERTY_NEO4J_VERSION)).orElse("3.5.6");
+		private final String repository = Optional.ofNullable(System.getenv(SYS_PROPERTY_NEO4J_REPOSITORY)).orElse("neo4j");
 
-		private final Neo4jContainer<?> neo4jContainer = new Neo4jContainer<>("neo4j:" + imageVersion)
+		private final String imageVersion = Optional.ofNullable(System.getenv(SYS_PROPERTY_NEO4J_VERSION)).orElse("3.5.12");
+
+		private final Neo4jContainer<?> neo4jContainer = new Neo4jContainer<>(repository + ":" + imageVersion)
 			.withoutAuthentication()
 			.withEnv("NEO4J_ACCEPT_LICENSE_AGREEMENT", Optional.ofNullable(System.getenv(SYS_PROPERTY_NEO4J_ACCEPT_COMMERCIAL_EDITION)).orElse("no"));
 

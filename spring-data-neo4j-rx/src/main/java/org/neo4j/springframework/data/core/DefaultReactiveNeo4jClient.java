@@ -33,18 +33,16 @@ import java.util.function.Supplier;
 
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
-import org.neo4j.driver.exceptions.NoSuchRecordException;
 import org.neo4j.driver.reactive.RxSession;
-import org.neo4j.driver.reactive.RxStatementRunner;
+import org.neo4j.driver.reactive.RxQueryRunner;
 import org.neo4j.driver.summary.ResultSummary;
 import org.neo4j.driver.types.TypeSystem;
-import org.neo4j.springframework.data.core.Neo4jClient.OngoingBindSpec;
+import org.neo4j.springframework.data.core.Neo4jClient.*;
 import org.neo4j.springframework.data.core.convert.Neo4jConversions;
 import org.reactivestreams.Publisher;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.converter.ConverterRegistry;
 import org.springframework.core.convert.support.DefaultConversionService;
-import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
@@ -82,19 +80,19 @@ class DefaultReactiveNeo4jClient implements ReactiveNeo4jClient {
 			);
 	}
 
-	<T> Mono<T> doInStatementRunnerForMono(final String targetDatabase, Function<RxStatementRunner, Mono<T>> func) {
+	<T> Mono<T> doInQueryRunnerForMono(final String targetDatabase, Function<RxQueryRunner, Mono<T>> func) {
 
 		return Mono.usingWhen(retrieveRxStatementRunnerHolder(targetDatabase),
-			holder -> func.apply(holder.getRxStatementRunner()),
+			holder -> func.apply(holder.getRxQueryRunner()),
 			RxStatementRunnerHolder::getCommit,
 			(holder, ex) -> holder.getRollback(),
 			RxStatementRunnerHolder::getCommit);
 	}
 
-	<T> Flux<T> doInStatementRunnerForFlux(final String targetDatabase, Function<RxStatementRunner, Flux<T>> func) {
+	<T> Flux<T> doInStatementRunnerForFlux(final String targetDatabase, Function<RxQueryRunner, Flux<T>> func) {
 
 		return Flux.usingWhen(retrieveRxStatementRunnerHolder(targetDatabase),
-			holder -> func.apply(holder.getRxStatementRunner()),
+			holder -> func.apply(holder.getRxQueryRunner()),
 			RxStatementRunnerHolder::getCommit,
 			(holder, ex) -> holder.getRollback(),
 			RxStatementRunnerHolder::getCommit);
@@ -111,25 +109,8 @@ class DefaultReactiveNeo4jClient implements ReactiveNeo4jClient {
 	}
 
 	@Override
-	public <T> OngoingDelegation<T> delegateTo(Function<RxStatementRunner, Mono<T>> callback) {
+	public <T> OngoingDelegation<T> delegateTo(Function<RxQueryRunner, Mono<T>> callback) {
 		return new DefaultRunnableDelegation<>(callback);
-	}
-
-	@Override
-	public <T> ExecutableQuery<T> toExecutableQuery(PreparedQuery<T> preparedQuery) {
-
-		Class<T> resultType = preparedQuery.getResultType();
-		MappingSpec<T> mappingSpec = this
-			.query(preparedQuery.getCypherQuery())
-			.bindAll(preparedQuery.getParameters())
-			.fetchAs(resultType);
-
-		RecordFetchSpec<T> fetchSpec = preparedQuery
-			.getOptionalMappingFunction()
-			.map(mappingFunction -> mappingSpec.mappedBy(mappingFunction))
-			.orElse(mappingSpec);
-
-		return new DefaultReactiveExecutableQuery<>(fetchSpec);
 	}
 
 	class DefaultRunnableSpec implements RunnableSpec {
@@ -254,7 +235,7 @@ class DefaultReactiveNeo4jClient implements ReactiveNeo4jClient {
 			return Mono.fromSupplier(cypherSupplier).zipWith(Mono.just(parameters.get()));
 		}
 
-		Flux<T> executeWith(Tuple2<String, Map<String, Object>> t, RxStatementRunner runner) {
+		Flux<T> executeWith(Tuple2<String, Map<String, Object>> t, RxQueryRunner runner) {
 
 			return Flux.from(runner.run(t.getT1(), t.getT2()).records()).map(r -> mappingFunction.apply(typeSystem, r));
 		}
@@ -262,7 +243,7 @@ class DefaultReactiveNeo4jClient implements ReactiveNeo4jClient {
 		@Override
 		public Mono<T> one() {
 
-			return doInStatementRunnerForMono(
+			return doInQueryRunnerForMono(
 				targetDatabase,
 				(runner) -> prepareStatement().flatMapMany(t -> executeWith(t, runner)).singleOrEmpty());
 		}
@@ -270,7 +251,7 @@ class DefaultReactiveNeo4jClient implements ReactiveNeo4jClient {
 		@Override
 		public Mono<T> first() {
 
-			return doInStatementRunnerForMono(
+			return doInQueryRunnerForMono(
 				targetDatabase,
 				runner -> prepareStatement().flatMapMany(t -> executeWith(t, runner)).next());
 		}
@@ -286,23 +267,23 @@ class DefaultReactiveNeo4jClient implements ReactiveNeo4jClient {
 
 		Mono<ResultSummary> run() {
 
-			return doInStatementRunnerForMono(
+			return doInQueryRunnerForMono(
 				targetDatabase,
-				runner -> prepareStatement().flatMap(t -> Mono.from(runner.run(t.getT1(), t.getT2()).summary())));
+				runner -> prepareStatement().flatMap(t -> Mono.from(runner.run(t.getT1(), t.getT2()).consume())));
 		}
 	}
 
 	class DefaultRunnableDelegation<T> implements RunnableDelegation<T>, OngoingDelegation<T> {
 
-		private final Function<RxStatementRunner, Mono<T>> callback;
+		private final Function<RxQueryRunner, Mono<T>> callback;
 
 		private String targetDatabase;
 
-		DefaultRunnableDelegation(Function<RxStatementRunner, Mono<T>> callback) {
+		DefaultRunnableDelegation(Function<RxQueryRunner, Mono<T>> callback) {
 			this(callback, null);
 		}
 
-		DefaultRunnableDelegation(Function<RxStatementRunner, Mono<T>> callback,
+		DefaultRunnableDelegation(Function<RxQueryRunner, Mono<T>> callback,
 			@Nullable String targetDatabase) {
 			this.callback = callback;
 			this.targetDatabase = targetDatabase;
@@ -318,7 +299,7 @@ class DefaultReactiveNeo4jClient implements ReactiveNeo4jClient {
 		@Override
 		public Mono<T> run() {
 
-			return doInStatementRunnerForMono(
+			return doInQueryRunnerForMono(
 				targetDatabase,
 				callback
 			);
@@ -326,50 +307,20 @@ class DefaultReactiveNeo4jClient implements ReactiveNeo4jClient {
 		}
 	}
 
-	final class DefaultReactiveExecutableQuery<T> implements ExecutableQuery<T> {
-
-		private final RecordFetchSpec<T> fetchSpec;
-
-		DefaultReactiveExecutableQuery(RecordFetchSpec<T> fetchSpec) {
-			this.fetchSpec = fetchSpec;
-		}
-
-		/**
-		 * @return All results returned by this query.
-		 */
-		public Flux<T> getResults() {
-			return fetchSpec.all();
-		}
-
-		/**
-		 * @return A single result
-		 * @throws IncorrectResultSizeDataAccessException if there is no or more than one result
-		 */
-		public Mono<T> getSingleResult() {
-			try {
-				return fetchSpec.one();
-			} catch (NoSuchRecordException e) {
-				// This exception is thrown by the driver in both cases when there are 0 or 1+n records
-				// So there has been an incorrect result size, but not to few results but to many.
-				throw new IncorrectResultSizeDataAccessException(1);
-			}
-		}
-	}
-
 	final class RxStatementRunnerHolder {
-		private final RxStatementRunner rxStatementRunner;
+		private final RxQueryRunner rxQueryRunner;
 
 		private final Publisher<Void> commit;
 		private final Publisher<Void> rollback;
 
-		RxStatementRunnerHolder(RxStatementRunner rxStatementRunner, Publisher<Void> commit, Publisher<Void> rollback) {
-			this.rxStatementRunner = rxStatementRunner;
+		RxStatementRunnerHolder(RxQueryRunner rxQueryRunner, Publisher<Void> commit, Publisher<Void> rollback) {
+			this.rxQueryRunner = rxQueryRunner;
 			this.commit = commit;
 			this.rollback = rollback;
 		}
 
-		public RxStatementRunner getRxStatementRunner() {
-			return rxStatementRunner;
+		public RxQueryRunner getRxQueryRunner() {
+			return rxQueryRunner;
 		}
 
 		public Publisher<Void> getCommit() {

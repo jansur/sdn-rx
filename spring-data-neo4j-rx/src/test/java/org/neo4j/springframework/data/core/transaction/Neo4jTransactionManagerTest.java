@@ -36,7 +36,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Session;
-import org.neo4j.driver.StatementResult;
+import org.neo4j.driver.Result;
 import org.neo4j.driver.Transaction;
 import org.neo4j.driver.TransactionConfig;
 import org.neo4j.driver.SessionConfig;
@@ -66,7 +66,7 @@ class Neo4jTransactionManagerTest {
 	@Mock
 	private Transaction transaction;
 	@Mock
-	private StatementResult statementResult;
+	private Result statementResult;
 	@Mock
 	private UserTransaction userTransaction;
 
@@ -104,7 +104,7 @@ class Neo4jTransactionManagerTest {
 		verify(session).beginTransaction(any(TransactionConfig.class));
 
 		verify(transaction, times(2)).isOpen();
-		verify(transaction).success();
+		verify(transaction).commit();
 		verify(transaction).close();
 
 		verify(session).close();
@@ -178,7 +178,7 @@ class Neo4jTransactionManagerTest {
 				verify(session).close();
 
 				verify(transaction, times(2)).isOpen();
-				verify(transaction).failure();
+				verify(transaction).rollback();
 				verify(transaction).close();
 			}
 
@@ -220,7 +220,7 @@ class Neo4jTransactionManagerTest {
 				verify(session).close();
 
 				verify(transaction, times(2)).isOpen();
-				verify(transaction).failure();
+				verify(transaction).rollback();
 				verify(transaction).close();
 			}
 
@@ -263,7 +263,7 @@ class Neo4jTransactionManagerTest {
 				verify(session).close();
 
 				verify(transaction, times(3)).isOpen();
-				verify(transaction).success();
+				verify(transaction).commit();
 				verify(transaction).close();
 			}
 
@@ -304,7 +304,7 @@ class Neo4jTransactionManagerTest {
 				verify(session).close();
 
 				verify(transaction, times(3)).isOpen();
-				verify(transaction).failure();
+				verify(transaction).rollback();
 				verify(transaction).close();
 			}
 		}

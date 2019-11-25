@@ -23,6 +23,7 @@ import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.neo4j.driver.Driver
 import org.neo4j.driver.Record
@@ -35,6 +36,7 @@ import org.neo4j.springframework.data.core.fetchAll
 import org.neo4j.springframework.data.core.fetchAs
 import org.neo4j.springframework.data.core.mappedBy
 import org.neo4j.springframework.data.test.Neo4jExtension
+import org.neo4j.springframework.data.test.Neo4jExtension.NEEDS_REACTIVE_SUPPORT
 import org.neo4j.springframework.data.test.Neo4jIntegrationTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Bean
@@ -48,6 +50,7 @@ import reactor.test.StepVerifier
  * @author Michael J. Simons
  */
 @Neo4jIntegrationTest
+@Tag(NEEDS_REACTIVE_SUPPORT)
 class ReactiveNeo4jClientKotlinInteropIT @Autowired constructor(
     private val driver: Driver,
     private val neo4jClient: ReactiveNeo4jClient
@@ -68,10 +71,10 @@ class ReactiveNeo4jClientKotlinInteropIT @Autowired constructor(
 
             bands.forEach { b, m ->
                 val summary = it.run("""
-					CREATE (b:Band {name: ${'$'}band}) 
-					WITH b
-					UNWIND ${'$'}names AS name CREATE (n:Member {name: name}) <- [:HAS_MEMBER] - (b)
-					""".trimIndent(), Values.parameters("band", b, "names", m)).summary()
+                    CREATE (b:Band {name: ${'$'}band}) 
+                    WITH b
+                    UNWIND ${'$'}names AS name CREATE (n:Member {name: name}) <- [:HAS_MEMBER] - (b)
+                    """.trimIndent(), Values.parameters("band", b, "names", m)).consume()
                 assertThat(summary.counters().nodesCreated()).isGreaterThan(0)
             }
         }

@@ -22,7 +22,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.experimental.Wither;
+import lombok.With;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -33,6 +33,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 
 import org.neo4j.springframework.data.core.schema.GeneratedValue;
 import org.neo4j.springframework.data.core.schema.Id;
@@ -49,8 +50,12 @@ import org.neo4j.springframework.data.core.schema.Node;
 @Builder
 public class ThingWithAllAdditionalTypes {
 
+	enum SomeEnum {
+		ValueA, ValueB, TheUsualMisfit, ValueC
+	}
+
 	@Id @GeneratedValue
-	@Wither
+	@With
 	public final Long id;
 
 	private boolean[] booleanArray;
@@ -96,4 +101,14 @@ public class ThingWithAllAdditionalTypes {
 	private Set<String> setOfStrings;
 
 	private Instant anInstant;
+
+	private UUID aUUID;
+
+	private SomeEnum anEnum;
+
+	private SomeEnum[] anArrayOfEnums;
+
+	private List<Double> listOfDoubles;
+
+	private List<SomeEnum> aCollectionOfEnums;
 }

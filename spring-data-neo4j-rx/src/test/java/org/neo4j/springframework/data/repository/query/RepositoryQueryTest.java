@@ -19,12 +19,14 @@
 package org.neo4j.springframework.data.repository.query;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assumptions.*;
 import static org.mockito.Mockito.*;
 
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -33,7 +35,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.neo4j.driver.Values;
 import org.neo4j.driver.types.Point;
-import org.neo4j.springframework.data.core.Neo4jClient;
+import org.neo4j.springframework.data.core.Neo4jOperations;
 import org.neo4j.springframework.data.core.mapping.Neo4jMappingContext;
 import org.neo4j.springframework.data.core.schema.GeneratedValue;
 import org.neo4j.springframework.data.repository.query.Neo4jQueryMethod.Neo4jParameters;
@@ -72,12 +74,6 @@ final class RepositoryQueryTest {
 	private static final ProjectionFactory PROJECTION_FACTORY = new SpelAwareProxyProjectionFactory();
 
 	@Mock
-	Neo4jClient neo4jClient;
-
-	@Mock
-	Neo4jMappingContext schema;
-
-	@Mock
 	NamedQueries namedQueries;
 
 	@Nested
@@ -91,6 +87,24 @@ final class RepositoryQueryTest {
 			Optional<Query> optionalQueryAnnotation = neo4jQueryMethod.getQueryAnnotation();
 			assertThat(optionalQueryAnnotation).isPresent();
 		}
+
+		@Test
+		void streamQueriesShouldBeTreatedAsCollectionQueries() {
+
+			Neo4jQueryMethod neo4jQueryMethod = neo4jQueryMethod("findAllByIdGreaterThan", long.class);
+
+			assumeThat(neo4jQueryMethod.isStreamQuery()).isTrue();
+			assertThat(neo4jQueryMethod.isCollectionLikeQuery()).isTrue();
+		}
+
+		@Test
+		void collectionQueriesShouldBeTreatedAsSuch() {
+
+			Neo4jQueryMethod neo4jQueryMethod = neo4jQueryMethod("findAllByANamedQuery");
+
+			assumeThat(neo4jQueryMethod.isCollectionQuery()).isTrue();
+			assertThat(neo4jQueryMethod.isCollectionLikeQuery()).isTrue();
+		}
 	}
 
 	@Nested
@@ -99,7 +113,8 @@ final class RepositoryQueryTest {
 		@Test
 		void shouldSelectPartTreeNeo4jQuery() {
 
-			final Neo4jQueryLookupStrategy lookupStrategy = new Neo4jQueryLookupStrategy(mock(Neo4jClient.class), mock(
+			final Neo4jQueryLookupStrategy lookupStrategy = new Neo4jQueryLookupStrategy(mock(Neo4jOperations.class),
+				mock(
 				Neo4jMappingContext.class), QueryMethodEvaluationContextProvider.DEFAULT);
 
 			RepositoryQuery query = lookupStrategy
@@ -111,7 +126,8 @@ final class RepositoryQueryTest {
 		@Test
 		void shouldSelectStringBasedNeo4jQuery() {
 
-			final Neo4jQueryLookupStrategy lookupStrategy = new Neo4jQueryLookupStrategy(mock(Neo4jClient.class), mock(
+			final Neo4jQueryLookupStrategy lookupStrategy = new Neo4jQueryLookupStrategy(mock(Neo4jOperations.class),
+				mock(
 				Neo4jMappingContext.class), QueryMethodEvaluationContextProvider.DEFAULT);
 
 			RepositoryQuery query = lookupStrategy
@@ -127,7 +143,8 @@ final class RepositoryQueryTest {
 			when(namedQueries.hasQuery(namedQueryName)).thenReturn(true);
 			when(namedQueries.getQuery(namedQueryName)).thenReturn("MATCH (n) RETURN n");
 
-			final Neo4jQueryLookupStrategy lookupStrategy = new Neo4jQueryLookupStrategy(mock(Neo4jClient.class), mock(
+			final Neo4jQueryLookupStrategy lookupStrategy = new Neo4jQueryLookupStrategy(mock(Neo4jOperations.class),
+				mock(
 				Neo4jMappingContext.class), QueryMethodEvaluationContextProvider.DEFAULT);
 
 			RepositoryQuery query = lookupStrategy
@@ -182,7 +199,7 @@ final class RepositoryQueryTest {
 
 			assertThatExceptionOfType(MappingException.class)
 				.isThrownBy(
-					() -> StringBasedNeo4jQuery.create(mock(Neo4jClient.class), mock(Neo4jMappingContext.class),
+					() -> StringBasedNeo4jQuery.create(mock(Neo4jOperations.class), mock(Neo4jMappingContext.class),
 						QueryMethodEvaluationContextProvider.DEFAULT, method))
 				.withMessage("Expected @Query annotation to have a value, but it did not.");
 		}
@@ -193,7 +210,7 @@ final class RepositoryQueryTest {
 			Neo4jQueryMethod method = RepositoryQueryTest
 				.neo4jQueryMethod("annotatedQueryWithValidTemplate", String.class, String.class);
 
-			StringBasedNeo4jQuery repositoryQuery = StringBasedNeo4jQuery.create(mock(Neo4jClient.class),
+			StringBasedNeo4jQuery repositoryQuery = StringBasedNeo4jQuery.create(mock(Neo4jOperations.class),
 				mock(Neo4jMappingContext.class), QueryMethodEvaluationContextProvider.DEFAULT,
 				method);
 
@@ -213,7 +230,7 @@ final class RepositoryQueryTest {
 				.neo4jQueryMethod("findByDontDoThisInRealLiveNamed", org.neo4j.driver.types.Point.class, String.class,
 					String.class);
 
-			StringBasedNeo4jQuery repositoryQuery = StringBasedNeo4jQuery.create(mock(Neo4jClient.class),
+			StringBasedNeo4jQuery repositoryQuery = StringBasedNeo4jQuery.create(mock(Neo4jOperations.class),
 				mock(Neo4jMappingContext.class), QueryMethodEvaluationContextProvider.DEFAULT,
 				method);
 
@@ -268,6 +285,8 @@ final class RepositoryQueryTest {
 		List<TestEntity> annotatedQueryWithoutTemplate();
 
 		List<TestEntity> findAllByANamedQuery();
+
+		Stream<TestEntity> findAllByIdGreaterThan(long id);
 	}
 
 	private RepositoryQueryTest() {

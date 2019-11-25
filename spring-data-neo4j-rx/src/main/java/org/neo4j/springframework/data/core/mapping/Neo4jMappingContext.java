@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -42,7 +41,6 @@ import org.neo4j.springframework.data.core.convert.Neo4jSimpleTypes;
 import org.neo4j.springframework.data.core.schema.IdDescription;
 import org.neo4j.springframework.data.core.schema.IdGenerator;
 import org.neo4j.springframework.data.core.schema.NodeDescription;
-import org.neo4j.springframework.data.core.schema.Relationship;
 import org.neo4j.springframework.data.core.schema.RelationshipDescription;
 import org.neo4j.springframework.data.core.schema.Schema;
 import org.neo4j.springframework.data.core.schema.UnknownEntityException;
@@ -65,7 +63,7 @@ import org.springframework.data.util.TypeInformation;
 import org.springframework.lang.Nullable;
 
 /**
- * An implementation of both a {@link Schema} as well as a Neo4j version of Spring Datas
+ * An implementation of both a {@link Schema} as well as a Neo4j version of Spring Data's
  * {@link org.springframework.data.mapping.context.MappingContext}. It is recommended to provide
  * the initial set of classes through {@link #setInitialEntitySet(Set)}.
  *
@@ -82,8 +80,6 @@ public final class Neo4jMappingContext
 	 * {@link AbstractMappingContext}, so this lookup is not synchronized further.
 	 */
 	private final Map<String, NodeDescription<?>> nodeDescriptionsByPrimaryLabel = new HashMap<>();
-
-	private final ConcurrentMap<String, Collection<RelationshipDescription>> relationshipsByPrimaryLabel = new ConcurrentHashMap<>();
 
 	/**
 	 * A map of fallback id generators, that have not been added to the application context
@@ -159,9 +155,9 @@ public final class Neo4jMappingContext
 	 */
 	@Override
 	protected Neo4jPersistentProperty createPersistentProperty(Property property,
-		Neo4jPersistentEntity<?> neo4jPersistentProperties, SimpleTypeHolder simpleTypeHolder) {
+		Neo4jPersistentEntity<?> owner, SimpleTypeHolder simpleTypeHolder) {
 
-		return new DefaultNeo4jPersistentProperty(property, neo4jPersistentProperties, simpleTypeHolder);
+		return new DefaultNeo4jPersistentProperty(property, owner, this, simpleTypeHolder);
 	}
 
 	@Override
@@ -192,17 +188,11 @@ public final class Neo4jMappingContext
 	}
 
 	@Override
-	public Collection<RelationshipDescription> getRelationshipsOf(String primaryLabel) {
-
-		return this.relationshipsByPrimaryLabel.computeIfAbsent(primaryLabel, this::computeRelationshipsOf);
-	}
-
-	@Override
 	@Nullable
 	public <T> BiFunction<TypeSystem, Record, T> getMappingFunctionFor(Class<T> targetClass) {
 		if (this.hasPersistentEntityFor(targetClass)) {
 			Neo4jPersistentEntity neo4jPersistentEntity = this.getPersistentEntity(targetClass);
-			return new DefaultNeo4jMappingFunction<>(neo4jPersistentEntity, this, this.converter);
+			return new DefaultNeo4jMappingFunction<>(neo4jPersistentEntity, this.converter);
 		}
 
 		return null;
@@ -231,31 +221,9 @@ public final class Neo4jMappingContext
 		final List<RelationshipDescription> relationships = new ArrayList<>();
 
 		Neo4jPersistentEntity<?> entity = this.getPersistentEntity(nodeDescription.getUnderlyingClass());
-		entity.doWithAssociations((Association<Neo4jPersistentProperty> association) -> {
-
-			Neo4jPersistentProperty inverse = association.getInverse();
-			Neo4jPersistentEntity<?> obverseOwner = this
-				.getPersistentEntity(inverse.getAssociationTargetType());
-
-			Relationship outgoingRelationship = inverse.findAnnotation(Relationship.class);
-
-
-			String type;
-			if (outgoingRelationship != null && outgoingRelationship.type() != null) {
-				type = outgoingRelationship.type();
-			} else {
-				type = inverse.getName();
-			}
-
-			Relationship.Direction direction = Relationship.Direction.OUTGOING;
-			if (outgoingRelationship != null) {
-				direction = outgoingRelationship.direction();
-			}
-
-			relationships
-				.add(new DefaultRelationshipDescription(type, primaryLabel, obverseOwner.getPrimaryLabel(),
-					inverse.getName(), direction));
-		});
+		entity.doWithAssociations((Association<Neo4jPersistentProperty> association) ->
+			relationships.add((RelationshipDescription) association)
+		);
 
 		return Collections.unmodifiableCollection(relationships);
 	}

@@ -19,6 +19,7 @@
 package org.neo4j.springframework.data.core.schema;
 
 import org.apiguardian.api.API;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.springframework.data.core.schema.Relationship.Direction;
 
 /**
@@ -32,24 +33,35 @@ import org.neo4j.springframework.data.core.schema.Relationship.Direction;
 @API(status = API.Status.INTERNAL, since = "1.0")
 public interface RelationshipDescription {
 
+	String NAME_OF_RELATIONSHIP_TYPE = "__relationshipType__";
+
 	/**
+	 * If this relationship is dynamic, than this method always returns the name of the inverse property.
+	 *
 	 * @return The type of this relationship
 	 */
 	String getType();
+
+	/**
+	 * A relationship is dynamic when it's modelled as a {@code Map<String, ?>}.
+	 *
+	 * @return True, if this relationship is dynamic
+	 */
+	boolean isDynamic();
 
 	/**
 	 * The source of this relationship is described by the primary label of the node in question.
 	 *
 	 * @return The source of this relationship
 	 */
-	String getSource();
+	NodeDescription<?> getSource();
 
 	/**
 	 * The target of this relationship is described by the primary label of the node in question.
 	 *
 	 * @return The target of this relationship
 	 */
-	String getTarget();
+	NodeDescription<?> getTarget();
 
 	/**
 	 * The name of the property where the relationship was defined. This is used by the Cypher creation to name the
@@ -73,5 +85,11 @@ public interface RelationshipDescription {
 
 	default boolean isIncoming() {
 		return Direction.INCOMING.equals(this.getDirection());
+	}
+
+	@NotNull
+	default String generateRelatedNodesCollectionName() {
+
+		return this.getSource().getPrimaryLabel() + "_" + this.getType() + "_" + this.getTarget().getPrimaryLabel();
 	}
 }

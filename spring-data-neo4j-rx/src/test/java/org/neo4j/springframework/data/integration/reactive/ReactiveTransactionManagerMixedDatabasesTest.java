@@ -36,8 +36,8 @@ import org.neo4j.driver.Record;
 import org.neo4j.driver.TransactionConfig;
 import org.neo4j.driver.Values;
 import org.neo4j.driver.SessionConfig;
+import org.neo4j.driver.reactive.RxResult;
 import org.neo4j.driver.reactive.RxSession;
-import org.neo4j.driver.reactive.RxStatementResult;
 import org.neo4j.driver.reactive.RxTransaction;
 import org.neo4j.springframework.data.config.AbstractReactiveNeo4jConfig;
 import org.neo4j.springframework.data.core.Neo4jClient;
@@ -45,7 +45,6 @@ import org.neo4j.springframework.data.core.ReactiveNeo4jClient;
 import org.neo4j.springframework.data.core.transaction.ReactiveNeo4jTransactionManager;
 import org.neo4j.springframework.data.integration.shared.PersonWithAllConstructor;
 import org.neo4j.springframework.data.repository.config.EnableReactiveNeo4jRepositories;
-import org.neo4j.springframework.data.test.Neo4jExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -58,16 +57,14 @@ import org.springframework.transaction.reactive.TransactionalOperator;
  * The goal of this tests is to ensure a sensible coexistence of declarative {@link Transactional @Transactional}
  * transaction when the user uses the {@link Neo4jClient} in the same or another database.
  * <p>
- * While it does not integrate against a real database (multidatabase is an enterprise feature), it is still an integration
+ * While it does not integrate against a real database (multi-database is an enterprise feature), it is still an integration
  * test due to the high integration with Spring framework code.
  */
 @ExtendWith(SpringExtension.class)
-public class ReactiveTransactionManagerMixedDatabasesTest {
+class ReactiveTransactionManagerMixedDatabasesTest {
 
 	protected static final String DATABASE_NAME = "boom";
 	public static final String TEST_QUERY = "MATCH (n:DbTest) RETURN COUNT(n)";
-
-	protected static Neo4jExtension.Neo4jConnectionSupport neo4jConnectionSupport;
 
 	private final Driver driver;
 
@@ -80,7 +77,7 @@ public class ReactiveTransactionManagerMixedDatabasesTest {
 	private final WrapperService wrappingComponent;
 
 	@Autowired
-	public ReactiveTransactionManagerMixedDatabasesTest(Driver driver, ReactiveNeo4jClient neo4jClient,
+	ReactiveTransactionManagerMixedDatabasesTest(Driver driver, ReactiveNeo4jClient neo4jClient,
 		ReactiveNeo4jTransactionManager neo4jTransactionManager,
 		ReactivePersonRepository repository,
 		WrapperService wrappingComponent) {
@@ -113,7 +110,7 @@ public class ReactiveTransactionManagerMixedDatabasesTest {
 	}
 
 	@Test
-	void usingSameDatabaseExplizitTx() {
+	void usingSameDatabaseExplicitTx() {
 		ReactiveNeo4jTransactionManager otherTransactionManger = new ReactiveNeo4jTransactionManager(driver,
 			DATABASE_NAME);
 		TransactionalOperator otherTransactionTemplate = TransactionalOperator.create(otherTransactionManger);
@@ -139,7 +136,7 @@ public class ReactiveTransactionManagerMixedDatabasesTest {
 	}
 
 	@Test
-	void usingAnotherDatabaseExplizitTx() {
+	void usingAnotherDatabaseExplicitTx() {
 
 		TransactionalOperator transactionTemplate = TransactionalOperator.create(neo4jTransactionManager);
 
@@ -217,30 +214,30 @@ public class ReactiveTransactionManagerMixedDatabasesTest {
 			when(defaultRecord.size()).thenReturn(1);
 			when(defaultRecord.get(0)).thenReturn(Values.value(0L));
 
-			RxStatementResult boomStatementResult = mock(RxStatementResult.class);
-			when(boomStatementResult.records()).thenReturn(Mono.just(boomRecord));
+			RxResult boomResult = mock(RxResult.class);
+			when(boomResult.records()).thenReturn(Mono.just(boomRecord));
 
-			RxStatementResult defaultStatementResult = mock(RxStatementResult.class);
-			when(defaultStatementResult.records()).thenReturn(Mono.just(defaultRecord));
+			RxResult defaultResult = mock(RxResult.class);
+			when(defaultResult.records()).thenReturn(Mono.just(defaultRecord));
 
 			RxTransaction boomTransaction = mock(RxTransaction.class);
-			when(boomTransaction.run(eq(TEST_QUERY), any(Map.class))).thenReturn(boomStatementResult);
+			when(boomTransaction.run(eq(TEST_QUERY), any(Map.class))).thenReturn(boomResult);
 			when(boomTransaction.commit()).thenReturn(Mono.empty());
 			when(boomTransaction.rollback()).thenReturn(Mono.empty());
 
 			RxTransaction defaultTransaction = mock(RxTransaction.class);
-			when(defaultTransaction.run(eq(TEST_QUERY), any(Map.class))).thenReturn(defaultStatementResult);
+			when(defaultTransaction.run(eq(TEST_QUERY), any(Map.class))).thenReturn(defaultResult);
 			when(defaultTransaction.commit()).thenReturn(Mono.empty());
 			when(defaultTransaction.rollback()).thenReturn(Mono.empty());
 
 			RxSession boomSession = mock(RxSession.class);
-			when(boomSession.run(eq(TEST_QUERY), any(Map.class))).thenReturn(boomStatementResult);
+			when(boomSession.run(eq(TEST_QUERY), any(Map.class))).thenReturn(boomResult);
 			when(boomSession.beginTransaction()).thenReturn(Mono.just(boomTransaction));
 			when(boomSession.beginTransaction(any(TransactionConfig.class))).thenReturn(Mono.just(boomTransaction));
 			when(boomSession.close()).thenReturn(Mono.empty());
 
 			RxSession defaultSession = mock(RxSession.class);
-			when(defaultSession.run(eq(TEST_QUERY), any(Map.class))).thenReturn(defaultStatementResult);
+			when(defaultSession.run(eq(TEST_QUERY), any(Map.class))).thenReturn(defaultResult);
 			when(defaultSession.beginTransaction()).thenReturn(Mono.just(defaultTransaction));
 			when(defaultSession.beginTransaction(any(TransactionConfig.class)))
 				.thenReturn(Mono.just(defaultTransaction));

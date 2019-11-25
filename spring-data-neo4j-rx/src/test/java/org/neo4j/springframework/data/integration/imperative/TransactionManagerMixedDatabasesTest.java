@@ -31,8 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
+import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
-import org.neo4j.driver.StatementResult;
 import org.neo4j.driver.Transaction;
 import org.neo4j.driver.TransactionConfig;
 import org.neo4j.driver.Values;
@@ -54,11 +54,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * The goal of this tests is to ensure a sensible coexistence of declarative {@link Transactional @Transactional}
  * transaction when the user uses the {@link Neo4jClient} in the same or another database.
  * <p>
- * While it does not integrate against a real database (multidatabase is an enterprise feature), it is still an integration
+ * While it does not integrate against a real database (multi-database is an enterprise feature), it is still an integration
  * test due to the high integration with Spring framework code.
  */
 @ExtendWith(SpringExtension.class)
-public class TransactionManagerMixedDatabasesTest {
+class TransactionManagerMixedDatabasesTest {
 
 	protected static final String DATABASE_NAME = "boom";
 	public static final String TEST_QUERY = "MATCH (n:DbTest) RETURN COUNT(n)";
@@ -72,7 +72,7 @@ public class TransactionManagerMixedDatabasesTest {
 	private final PersonRepository repository;
 
 	@Autowired
-	public TransactionManagerMixedDatabasesTest(Driver driver, Neo4jClient neo4jClient,
+	TransactionManagerMixedDatabasesTest(Driver driver, Neo4jClient neo4jClient,
 		Neo4jTransactionManager neo4jTransactionManager,
 		PersonRepository repository) {
 		this.driver = driver;
@@ -101,7 +101,7 @@ public class TransactionManagerMixedDatabasesTest {
 	}
 
 	@Test
-	void usingSameDatabaseExplizitTx() {
+	void usingSameDatabaseExplicitTx() {
 		Neo4jTransactionManager otherTransactionManger = new Neo4jTransactionManager(driver, DATABASE_NAME);
 		TransactionTemplate otherTransactionTemplate = new TransactionTemplate(otherTransactionManger);
 
@@ -121,7 +121,7 @@ public class TransactionManagerMixedDatabasesTest {
 	}
 
 	@Test
-	void usingAnotherDatabaseExplizitTx() {
+	void usingAnotherDatabaseExplicitTx() {
 
 		assertThatIllegalStateException().isThrownBy(
 			() -> transactionTemplate.execute(
@@ -158,29 +158,29 @@ public class TransactionManagerMixedDatabasesTest {
 			when(defaultRecord.size()).thenReturn(1);
 			when(defaultRecord.get(0)).thenReturn(Values.value(0L));
 
-			StatementResult boomStatementResult = mock(StatementResult.class);
-			when(boomStatementResult.hasNext()).thenReturn(true);
-			when(boomStatementResult.single()).thenReturn(boomRecord);
+			Result boomResult = mock(Result.class);
+			when(boomResult.hasNext()).thenReturn(true);
+			when(boomResult.single()).thenReturn(boomRecord);
 
-			StatementResult defaultStatementResult = mock(StatementResult.class);
-			when(defaultStatementResult.hasNext()).thenReturn(true);
-			when(defaultStatementResult.single()).thenReturn(defaultRecord);
+			Result defaultResult = mock(Result.class);
+			when(defaultResult.hasNext()).thenReturn(true);
+			when(defaultResult.single()).thenReturn(defaultRecord);
 
 			Transaction boomTransaction = mock(Transaction.class);
-			when(boomTransaction.run(eq(TEST_QUERY), any(Map.class))).thenReturn(boomStatementResult);
+			when(boomTransaction.run(eq(TEST_QUERY), any(Map.class))).thenReturn(boomResult);
 			when(boomTransaction.isOpen()).thenReturn(true);
 
 			Transaction defaultTransaction = mock(Transaction.class);
-			when(defaultTransaction.run(eq(TEST_QUERY), any(Map.class))).thenReturn(defaultStatementResult);
+			when(defaultTransaction.run(eq(TEST_QUERY), any(Map.class))).thenReturn(defaultResult);
 			when(defaultTransaction.isOpen()).thenReturn(true);
 
 			Session boomSession = mock(Session.class);
-			when(boomSession.run(eq(TEST_QUERY), any(Map.class))).thenReturn(boomStatementResult);
+			when(boomSession.run(eq(TEST_QUERY), any(Map.class))).thenReturn(boomResult);
 			when(boomSession.beginTransaction(any(TransactionConfig.class))).thenReturn(boomTransaction);
 			when(boomSession.isOpen()).thenReturn(true);
 
 			Session defaultSession = mock(Session.class);
-			when(defaultSession.run(eq(TEST_QUERY), any(Map.class))).thenReturn(defaultStatementResult);
+			when(defaultSession.run(eq(TEST_QUERY), any(Map.class))).thenReturn(defaultResult);
 			when(defaultSession.beginTransaction(any(TransactionConfig.class))).thenReturn(defaultTransaction);
 			when(defaultSession.isOpen()).thenReturn(true);
 

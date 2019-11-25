@@ -18,7 +18,6 @@
  */
 package org.neo4j.springframework.data.core
 
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
@@ -97,28 +96,8 @@ suspend inline fun <reified T : Any> ReactiveNeo4jClient.RecordFetchSpec<T>.awai
  * @author Michael J. Simons
  * @since 1.0
  */
-@ExperimentalCoroutinesApi
 inline fun <reified T : Any> ReactiveNeo4jClient.RecordFetchSpec<T>.fetchAll(): Flow<T> =
     all().asFlow()
-
-/**
- * Coroutines [Flow] variant of [ReactiveNeo4jClient.ExecutableQuery.getResults].
- *
- * @author Michael J. Simons
- * @since 1.0
- */
-@ExperimentalCoroutinesApi
-inline fun <reified T : Any> ReactiveNeo4jClient.ExecutableQuery<T>.fetchAllResults(): Flow<T> =
-    results.asFlow()
-
-/**
- * Nullable Coroutines variant of [ReactiveNeo4jClient.ExecutableQuery.getSingleResult].
- *
- * @author Michael J. Simons
- * @since 1.0
- */
-suspend inline fun <reified T : Any> ReactiveNeo4jClient.ExecutableQuery<T>.awaitSingleResultOrNull(): T? =
-    singleResult.awaitFirstOrNull()
 
 /**
  * Nullable Coroutines variant of [ReactiveNeo4jClient.RunnableDelegation.run].

@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.neo4j.springframework.data.core.schema.GeneratedValue;
@@ -35,15 +36,20 @@ import org.neo4j.springframework.data.core.schema.GraphPropertyDescription;
 import org.neo4j.springframework.data.core.schema.IdDescription;
 import org.neo4j.springframework.data.core.schema.Node;
 import org.neo4j.springframework.data.core.schema.Property;
+import org.neo4j.springframework.data.core.schema.Relationship;
+import org.neo4j.springframework.data.core.schema.RelationshipDescription;
+import org.springframework.data.mapping.Association;
 import org.springframework.data.mapping.PropertyHandler;
 import org.springframework.data.mapping.model.BasicPersistentEntity;
 import org.springframework.data.support.IsNewStrategy;
 import org.springframework.data.util.Lazy;
 import org.springframework.data.util.TypeInformation;
 import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 
 /**
  * @author Michael J. Simons
+ * @author Gerrit Meier
  * @since 1.0
  */
 class DefaultNeo4jPersistentEntity<T> extends BasicPersistentEntity<T, Neo4jPersistentProperty>
@@ -132,6 +138,7 @@ class DefaultNeo4jPersistentEntity<T> extends BasicPersistentEntity<T, Neo4jPers
 		super.verify();
 		this.idDescription = computeIdDescription();
 		verifyNoDuplicatedGraphProperties();
+		verifyDynamicAssociations();
 	}
 
 	private void verifyNoDuplicatedGraphProperties() {
@@ -142,10 +149,23 @@ class DefaultNeo4jPersistentEntity<T> extends BasicPersistentEntity<T, Neo4jPers
 			.filter(entry -> entry.getValue().size() > 1)
 			.map(Map.Entry::getKey)
 			.collect(Collectors.toSet());
-		if (!duplicates.isEmpty()) {
-			throw new IllegalStateException(
+
+		Assert.state(duplicates.isEmpty(), () ->
 				String.format("Duplicate definition of propert%s %s in entity %s.", duplicates.size() == 1 ? "y" : "ies", duplicates, getUnderlyingClass()));
-		}
+	}
+
+	private void verifyDynamicAssociations() {
+
+		this.doWithAssociations((Association<Neo4jPersistentProperty> association) -> {
+			Neo4jPersistentProperty inverse = association.getInverse();
+			if (inverse.isDynamicAssociation()) {
+				Relationship relationship = inverse.findAnnotation(Relationship.class);
+				Supplier<String> message = () ->
+					"Dynamic relationships cannot be used with a fixed type. Omit @Relationship or use @Relationship(direction = "
+						+ relationship.direction().name() + ").";
+				Assert.state(relationship == null || relationship.type().isEmpty(), message);
+			}
+		});
 	}
 
 	private String computePrimaryLabel() {
@@ -190,6 +210,16 @@ class DefaultNeo4jPersistentEntity<T> extends BasicPersistentEntity<T, Neo4jPers
 		return IdDescription
 			.forExternallyGeneratedIds(generatedValueAnnotation.generatorClass(),
 				generatedValueAnnotation.generatorRef(), idProperty.getPropertyName());
+	}
+
+	@Override
+	public Collection<RelationshipDescription> getRelationships() {
+
+		final List<RelationshipDescription> relationships = new ArrayList<>();
+		this.doWithAssociations((Association<Neo4jPersistentProperty> association) ->
+			relationships.add((RelationshipDescription) association)
+		);
+		return Collections.unmodifiableCollection(relationships);
 	}
 
 	private Collection<GraphPropertyDescription> computeGraphProperties() {

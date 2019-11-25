@@ -16,25 +16,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.neo4j.springframework.data.core.schema;
+package org.neo4j.springframework.boot.test.autoconfigure.data;
 
-import org.apiguardian.api.API;
-import org.jetbrains.annotations.NotNull;
+import org.neo4j.springframework.data.core.schema.GeneratedValue;
+import org.neo4j.springframework.data.core.schema.Id;
+import org.neo4j.springframework.data.core.schema.Node;
 
 /**
- * Internal API for generating unique collection names and similar used during mapping.
+ * A sample {@link Node}.
  *
  * @author Michael J. Simons
  * @since 1.0
  */
-@API(status = API.Status.INTERNAL, since = "1.0")
-public final class SchemaUtils {
+@Node
+public class ExampleEntity {
 
-	@NotNull
-	public static String generateRelatedNodesCollectionName(RelationshipDescription description) {
+	@Id @GeneratedValue
+	private Long id;
 
-		return description.getSource() + "_" + description.getType() + "_" + description.getTarget();
+	private final String name;
+
+	public ExampleEntity(String name) {
+		this.name = name;
 	}
-	private SchemaUtils() {
+
+	public Long getId() {
+		return id;
+	}
+
+	public String getName() {
+		return name;
 	}
 }
